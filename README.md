@@ -8,7 +8,7 @@ Reference materials
 
 All required information can be found here http://aluigi.altervista.org/papers.htm
 
-[GameSpy SDK Help.chm](../GameSpy SDK Help.chm) desribes qr2 protocol that servers use when communicating with master. This information is however not really required.
+[GameSpy SDK Help.chm](GameSpySDKHelp.chm) desribes qr2 protocol that servers use when communicating with master. This information is however not really required.
 
 Plan of attack when QTracker is shut down
 -----------------------------------------
@@ -31,4 +31,4 @@ Notes
 
 * Consider publishing a firehose of events. So that apps like TribesRevengeance Stats can subscribe instead of polling
 * Consider persisting in case of restarts, shutdowns and crashes
-* Fuzz!
+* Make sure to fuzz final binary, it will be exposed to network. If possible, allow failure of the internal encryption algo.
