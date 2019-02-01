@@ -1,4 +1,4 @@
-﻿using Comms;
+﻿using Comms3;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,7 +10,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using static Comms.Enctypex;
 
 namespace TestServer
 {
@@ -196,7 +195,7 @@ namespace TestServer
 
         public static byte[] DecryptResponseManaged(byte[] data, ClientRequestInfo ps)
         {
-            Enctypex_data_t encx_data = null;
+            Enctypex.Enctypex_data_t encx_data = null;
             long len = (long)data.Length;
             var xyz = Encoding.ASCII.GetBytes("y3D28k");
             var decoded = Enctypex.enctypex_decoder(ref xyz, ref ps.Validate, ref data, ref len, ref encx_data);

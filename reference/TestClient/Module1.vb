@@ -1,7 +1,7 @@
 ﻿Imports System.Net
 Imports System.Net.Sockets
-Imports Comms
-Imports Comms.DataStructures
+Imports Comms3
+Imports Comms3.DataStructures
 
 Public Module Module1
     '

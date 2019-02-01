@@ -51,15 +51,15 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Comms\Comms.vbproj">
-      <Project>{0b005526-6405-44e1-8b81-d629ee19fd5a}</Project>
-      <Name>Comms</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Content Include="encrypex_decoder.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Comms3\Comms3.vbproj">
+      <Project>{55bb2bb5-e1f2-4f29-ad05-07f730fc0a57}</Project>
+      <Name>Comms3</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

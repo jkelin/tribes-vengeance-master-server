@@ -1,4 +1,4 @@
-Public Module DataStructures
+﻿Public Module DataStructures
     '
     'Data Structures and functions for EncryptX data decoding
     'Created by: NMGod
