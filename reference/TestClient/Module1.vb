@@ -45,7 +45,7 @@ Public Module Module1
         Dim tcp As New Net.Sockets.TcpClient
         Dim gamestr As String = "tribesv"
 
-        tcp.Connect("localhost", 28910)
+        tcp.Connect("127.0.0.1", 28910)
         'tcp.Connect("65.112.87.186", 28910)
 
         Dim validate As Byte() = New Byte(8) {}

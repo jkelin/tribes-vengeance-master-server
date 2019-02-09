@@ -13,6 +13,11 @@ name = "tribes-vengeance-master-server"
 path = "src/main.rs"
 
 [dependencies]
+futures = "0.1"
+tokio = "0.1"
+tokio-io = "0.1"
+actix = "0.7"
+bytes = "0.4"
 
 [build-dependencies]
 cc = "1.0"
