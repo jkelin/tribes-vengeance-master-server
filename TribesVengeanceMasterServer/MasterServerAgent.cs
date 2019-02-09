@@ -40,7 +40,12 @@ namespace TribesVengeanceMasterServer
             lock (networkStream)
             {
                 readLen = readLen + networkStream.EndRead(ar);
-                byte[] read = buffer.Take(readLen).ToArray();
+                if (readLen == 0)
+                {
+                    return;
+                }
+
+                var read = buffer.Take(readLen).ToArray();
 
                 if (!Encoder.TryDecodeClientRequest(read, out info))
                 {

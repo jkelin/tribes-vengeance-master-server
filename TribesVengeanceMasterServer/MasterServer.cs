@@ -14,6 +14,7 @@ namespace TribesVengeanceMasterServer
         private readonly GameServerStorage gameServerStorage;
         private readonly TcpListener listener;
         private readonly ConcurrentDictionary<TcpClient, MasterServerAgent> Agents = new ConcurrentDictionary<TcpClient, MasterServerAgent>();
+        private bool IsDisposed = false;
 
         public MasterServer(IPEndPoint endPoint, GameServerStorage gameServerStorage)
         {
@@ -32,10 +33,16 @@ namespace TribesVengeanceMasterServer
 
         public void AcceptedTcpClient(IAsyncResult ar)
         {
+            if(IsDisposed)
+            {
+                return;
+            }
+
             TcpClient client = listener.EndAcceptTcpClient(ar);
             listener.BeginAcceptTcpClient(AcceptedTcpClient, null);
+            var remoteIp = ((IPEndPoint)client.Client.RemoteEndPoint).Address;
 
-            if(Agents.Keys.Count(x => ((IPEndPoint)x.Client.RemoteEndPoint).Address == ((IPEndPoint)client.Client.RemoteEndPoint).Address) > MaxConnectionsPerIp)
+            if (Agents.Keys.Select(x => ((IPEndPoint)x.Client.RemoteEndPoint).Address).Count(x => x.Equals(remoteIp)) > MaxConnectionsPerIp)
             {
                 client.Dispose();
                 return;
@@ -55,6 +62,8 @@ namespace TribesVengeanceMasterServer
 
         public void Dispose()
         {
+            IsDisposed = true;
+
             Agents.Values.ToList().ForEach(x => x.Dispose());
             listener.Stop();
         }

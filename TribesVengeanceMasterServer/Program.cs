@@ -28,6 +28,10 @@ namespace TribesVengeanceMasterServer
             {
                 cts.Cancel();
             };
+            Console.CancelKeyPress += (sender, cce) => {
+                cce.Cancel = true;
+                cts.Cancel();
+            };
 
             var storageFile = new FileInfo(StorageFilePath);
 
@@ -46,7 +50,7 @@ namespace TribesVengeanceMasterServer
 
                 Console.WriteLine("Shutting down");
 
-                await gameServerStorage.Save();
+                await gameServerStorage.Save(new CancellationTokenSource(500).Token);
             }
         }
 

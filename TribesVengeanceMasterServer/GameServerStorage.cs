@@ -19,13 +19,13 @@ namespace TribesVengeanceMasterServer
 
         public ImmutableDictionary<IPEndPoint, GameServer> Servers { get; private set; }
         private readonly AsyncLock Lock = new AsyncLock();
-        private readonly CancellationToken ct;
+        private readonly CancellationToken cancellationToken;
         private readonly FileInfo saveFile;
         private readonly Timer Timer;
 
-        public GameServerStorage(CancellationToken ct, FileInfo saveFile)
+        public GameServerStorage(CancellationToken cancellationToken, FileInfo saveFile)
         {
-            this.ct = ct;
+            this.cancellationToken = cancellationToken;
             this.saveFile = saveFile;
             Timer = new Timer(_ => Tick().Wait(), null, SaveInterval, SaveInterval);
             Servers = ImmutableDictionary<IPEndPoint, GameServer>.Empty;
@@ -43,18 +43,18 @@ namespace TribesVengeanceMasterServer
 
         private async Task Tick()
         {
-            using (await Lock.LockAsync(ct))
+            using (await Lock.LockAsync(cancellationToken))
             {
                 var minLastLive = DateTime.UtcNow - MaxAge;
                 Servers = Servers.RemoveRange(Servers.Where(x => x.Value.LastLive < minLastLive).Select(x => x.Key));
             }
 
-            await Save();
+            await Save(cancellationToken);
         }
 
         public async void ServerIsAlive(IPEndPoint ep, ImmutableDictionary<string, string> data = null)
         {
-            using(await Lock.LockAsync(ct))
+            using(await Lock.LockAsync(cancellationToken))
             {
                 if(Servers.TryGetValue(ep, out var server))
                 {
@@ -77,7 +77,7 @@ namespace TribesVengeanceMasterServer
                 Console.WriteLine("Server went offline {0}", ep);
             }
 
-            using (await Lock.LockAsync(ct))
+            using (await Lock.LockAsync(cancellationToken))
             {
                 Servers = Servers.Remove(ep);
             }
@@ -97,8 +97,9 @@ namespace TribesVengeanceMasterServer
             return LZ4MessagePackSerializer.Serialize(Servers.Values);
         }
 
-        public async Task Save()
+        public async Task Save(CancellationToken ct)
         {
+            Console.WriteLine("Saving GameServerStorage");
             try
             {
                 var tempPath = new FileInfo(Path.GetTempPath() + Guid.NewGuid().ToString());

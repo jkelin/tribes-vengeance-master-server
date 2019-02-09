@@ -14,6 +14,7 @@ namespace TribesVengeanceMasterServer
         private readonly UdpClient socket;
         private readonly IPEndPoint endpoint;
         private readonly GameServerStorage storage;
+        private bool IsDisposed = false;
 
         public HeartBeatServer(IPEndPoint endpoint, GameServerStorage storage)
         {
@@ -40,6 +41,11 @@ namespace TribesVengeanceMasterServer
 
         public void Received(IAsyncResult ar)
         {
+            if(IsDisposed)
+            {
+                return;
+            }
+
             IPEndPoint remote = null;
             byte[] data;
 
@@ -49,10 +55,14 @@ namespace TribesVengeanceMasterServer
                 socket.BeginReceive(Received, null);
             }
 
-            Console.WriteLine("HeartBeatServer received {0} bytes from {1}", data.Length, remote);
+            if(data.Length == 0)
+            {
+                return;
+            }
 
             if (TryAddAgent(remote, out var agent))
             {
+                Console.WriteLine("HeartBeatServer received {0} bytes from {1}", data.Length, remote);
                 agent.Received(data);
             }
         }
@@ -61,7 +71,7 @@ namespace TribesVengeanceMasterServer
         {
             agent = null;
 
-            if (ServerAgents.Keys.Count(x => x.Address == remote.Address) > MaxServersPerIp)
+            if (ServerAgents.Keys.Count(x => x.Address.Equals(remote.Address)) > MaxServersPerIp)
             {
                 return false;
             }
@@ -90,6 +100,8 @@ namespace TribesVengeanceMasterServer
 
         public void Dispose()
         {
+            IsDisposed = true;
+
             ServerAgents.Values.ToList().ForEach(x => x.Dispose());
             socket.Dispose();
         }
