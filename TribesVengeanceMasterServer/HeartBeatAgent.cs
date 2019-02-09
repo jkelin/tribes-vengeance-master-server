@@ -11,7 +11,6 @@ namespace TribesVengeanceMasterServer
     {
         public static TimeSpan BasicResponseTimeout = TimeSpan.FromSeconds(3);
         public static TimeSpan TimeOut = TimeSpan.FromSeconds(60);
-        public static TimeSpan BasicInterval = TimeSpan.FromSeconds(1);
         public static TimeSpan BasicMinInterval = TimeSpan.FromSeconds(1);
         public static string GameName = "tribesv";
 
@@ -22,7 +21,6 @@ namespace TribesVengeanceMasterServer
         private readonly GameServerStorage storage;
         private readonly Action disposeServer;
         private readonly DateTime AddedAt;
-        private readonly Timer Clock;
         private DateTime LastMessageAt = DateTime.MinValue;
         private DateTime LastResponseAt = DateTime.MinValue;
         private DateTime LastRequestAt = DateTime.MinValue;
@@ -34,7 +32,6 @@ namespace TribesVengeanceMasterServer
             this.storage = storage;
             this.disposeServer = disposeServer;
             AddedAt = DateTime.UtcNow;
-            Clock = new Timer(_ => Tick(), null, TimeSpan.FromMilliseconds(1), BasicInterval);
 
             Console.WriteLine("Created HeartBeatAgent for {0}", remote);
         }
@@ -57,7 +54,7 @@ namespace TribesVengeanceMasterServer
             Tick();
         }
 
-        private void Tick()
+        public void Tick()
         {
             var now = DateTime.UtcNow;
             var added = AddedAt + TimeOut;
@@ -90,7 +87,6 @@ namespace TribesVengeanceMasterServer
 
         public void Dispose()
         {
-            Clock?.Dispose();
             storage?.ServerIsOffline(remote);
         }
     }

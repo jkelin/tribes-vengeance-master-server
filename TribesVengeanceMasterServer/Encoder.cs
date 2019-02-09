@@ -31,9 +31,14 @@ namespace TribesVengeanceMasterServer
             return dataOut;
         }
 
-        public static bool TryParseQueryResponse(ReadOnlySpan<byte> bytes, ImmutableDictionary<string, string> previousData, out ImmutableDictionary<string, string> data, char separator = '\\')
+        public static bool TryParseQueryResponse(ReadOnlySpan<byte> bytes, ImmutableDictionary<string, string> previousData, out ImmutableDictionary<string, string> data, byte separator = 92)
         {
             data = previousData;
+
+            if(bytes.Length == 0)
+            {
+                return false;
+            }
 
             if(bytes[0] != separator)
             {
@@ -43,57 +48,47 @@ namespace TribesVengeanceMasterServer
 
             string currentKey = null;
             int currentValueStart = 1;
-            for (int i = 1; i < bytes.Length; i++)
+            while(currentValueStart < bytes.Length - 1)
             {
-                if(bytes[i] == separator)
+                var value = ReadStringFromData(bytes.Slice(currentValueStart), out var shift, separator);
+                currentValueStart += shift + 1;
+
+                if (currentKey == null)
                 {
-                    var value = Encoding.ASCII.GetString(bytes.Slice(currentValueStart, i - currentValueStart));
-                    if (currentKey == null)
-                    {
-                        currentKey = value;
+                    currentKey = value;
 
-                        if (string.IsNullOrEmpty(currentKey))
-                        {
-                            // Keys cannot be empty
-                            return false;
-                        }
+                    if (string.IsNullOrEmpty(currentKey))
+                    {
+                        // Keys cannot be empty
+                        return false;
                     }
-                    else
+                }
+                else
+                {
+                    if (!data.TryGetValue(currentKey, out var existingValue) || existingValue != value)
                     {
-                        if (!data.TryGetValue(currentKey, out var existingValue) || existingValue != value)
-                        {
-                            data = data.SetItem(currentKey, value);
-                        }
-
-                        currentKey = null;
+                        data = data.SetItem(currentKey, value);
                     }
 
-                    currentValueStart = i + 1;
+                    currentKey = null;
                 }
             }
 
-            if(currentKey != null)
-            {
-                var value = Encoding.ASCII.GetString(bytes.Slice(currentValueStart, bytes.Length - currentValueStart));
-
-                if (!data.TryGetValue(currentKey, out var existingValue) || existingValue != value)
-                {
-                    data = data.SetItem(currentKey, value);
-                }
-
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            return currentKey == null;
         }
 
-        static ushort ToUInt16(byte[] data, int offset)
+        static ushort ToUInt16(ReadOnlySpan<byte> data, int offset)
         {
+            var slice = data.Slice(offset, 2);
             if (BitConverter.IsLittleEndian)
-                return BitConverter.ToUInt16(BitConverter.IsLittleEndian ? data.Skip(offset).Take(2).Reverse().ToArray() : data, 0);
-            return BitConverter.ToUInt16(data, offset);
+            {
+                unchecked
+                {
+                    return (ushort)(slice[offset] << 8 | slice[1]);
+                }
+            }
+
+            return BitConverter.ToUInt16(slice);
         }
 
         static byte[] GetBytes(ushort data)
@@ -101,7 +96,33 @@ namespace TribesVengeanceMasterServer
             return BitConverter.GetBytes(data).Reverse().ToArray();
         }
 
-        public static bool TryDecodeClientRequest(byte[] data, out MasterServerRequestInfo info)
+        private static string ReadStringFromData(ReadOnlySpan<byte> data, out int endOffset, byte separator = 92)
+        {
+            for (endOffset = 0; endOffset < data.Length; endOffset++)
+            {
+                if(data[endOffset] == separator)
+                {
+                    return Encoding.ASCII.GetString(data.Slice(0, endOffset));
+                }
+            }
+
+            return Encoding.ASCII.GetString(data);
+        }
+
+        private static ReadOnlySpan<byte> ReadSpanFromData(ReadOnlySpan<byte> data, out int endOffset, byte separator = 92)
+        {
+            for (endOffset = 0; endOffset < data.Length; endOffset++)
+            {
+                if (data[endOffset] == separator)
+                {
+                    return data.Slice(0, endOffset);
+                }
+            }
+
+            return data;
+        }
+
+        public static bool TryDecodeClientRequest(ReadOnlySpan<byte> data, out MasterServerRequestInfo info)
         {
             info = new MasterServerRequestInfo();
             var i = 0;
@@ -109,7 +130,7 @@ namespace TribesVengeanceMasterServer
             var len = ToUInt16(data, i);
             i += 2;
 
-            var magicBytes = data.Skip(i).Take(4).ToArray();
+            var magicBytes = data.Slice(i, 4);
             if (magicBytes[0] != 0 || magicBytes[1] != 1 || magicBytes[2] != 3 || magicBytes[3] != 0)
             {
                 return false; // this aint valid
@@ -118,73 +139,18 @@ namespace TribesVengeanceMasterServer
 
             i += 3; // idk what this is
 
-            while (true)
-            {
-                info.Game1 += Encoding.ASCII.GetString(data, i, 1);
-                i++;
 
-                if (i >= data.Length)
-                {
-                    return false; // no terminating nullbyte
-                }
+            info.Game1 = ReadStringFromData(data.Slice(i), out var shift, 0);
+            i += shift + 1;
 
-                if (data[i] == 0)
-                {
-                    i++;
-                    break;
-                }
-            }
+            info.Game2 = ReadStringFromData(data.Slice(i), out var shift2, 0);
+            i += shift2 + 1;
 
-            while (true)
-            {
-                info.Game2 += Encoding.ASCII.GetString(data, i, 1);
-                i++;
+            info.Validate = ReadSpanFromData(data.Slice(i), out var shift3, 0).ToArray();
+            i += shift3 + 1;
 
-                if (i >= data.Length)
-                {
-                    return false; // no terminating nullbyte
-                }
-
-                if (data[i] == 0)
-                {
-                    i++;
-                    break;
-                }
-            }
-
-            while (true)
-            {
-                info.Validate = info.Validate.Concat(new byte[] { data[i] }).ToArray();
-                i++;
-
-                if (i >= data.Length)
-                {
-                    return false; // no terminating nullbyte
-                }
-
-                if (data[i] == 0)
-                {
-                    i++;
-                    break;
-                }
-            }
-
-            while (true)
-            {
-                info.Query += Encoding.ASCII.GetString(data, i, 1);
-                i++;
-
-                if (i >= data.Length)
-                {
-                    return false; // no terminating nullbyte
-                }
-
-                if (data[i] == 0)
-                {
-                    i++;
-                    break;
-                }
-            }
+            info.Query = ReadStringFromData(data.Slice(i), out var shift4, 0);
+            i += shift4 + 1;
 
             return true;
         }
@@ -227,13 +193,13 @@ namespace TribesVengeanceMasterServer
 
     public class MasterServerRequestInfo
     {
-        public string Game1 = "";
+        public string Game1;
 
-        public string Game2 = "";
+        public string Game2;
 
-        public byte[] Validate = new byte[0];
+        public byte[] Validate;
 
-        public string Query = "";
+        public string Query;
 
         public string[] Params
         {

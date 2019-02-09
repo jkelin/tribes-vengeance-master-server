@@ -3,17 +3,20 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 
 namespace TribesVengeanceMasterServer
 {
     public class HeartBeatServer : IDisposable
     {
+        public static TimeSpan BasicInterval = TimeSpan.FromMilliseconds(200);
         public static int MaxServersPerIp = 10;
 
         private readonly ConcurrentDictionary<IPEndPoint, HeartBeatAgent> ServerAgents = new ConcurrentDictionary<IPEndPoint, HeartBeatAgent>();
         private readonly UdpClient socket;
         private readonly IPEndPoint endpoint;
         private readonly GameServerStorage storage;
+        private readonly Timer Clock;
         private bool IsDisposed = false;
 
         public HeartBeatServer(IPEndPoint endpoint, GameServerStorage storage)
@@ -21,6 +24,7 @@ namespace TribesVengeanceMasterServer
             this.endpoint = endpoint;
             this.storage = storage;
             socket = new UdpClient(endpoint);
+            Clock = new Timer(_ => Tick(), null, BasicInterval, BasicInterval);
         }
 
         public void Listen()
@@ -37,6 +41,14 @@ namespace TribesVengeanceMasterServer
             Console.WriteLine("Starting HeartBeatServer UDP {0}", endpoint);
             socket.BeginReceive(Received, null);
             Console.WriteLine("HeartBeatServer started");
+        }
+
+        private void Tick()
+        {
+            foreach(var agent in ServerAgents.Values)
+            {
+                agent.Tick();
+            }
         }
 
         public void Received(IAsyncResult ar)
@@ -102,6 +114,7 @@ namespace TribesVengeanceMasterServer
         {
             IsDisposed = true;
 
+            Clock.Dispose();
             ServerAgents.Values.ToList().ForEach(x => x.Dispose());
             socket.Dispose();
         }

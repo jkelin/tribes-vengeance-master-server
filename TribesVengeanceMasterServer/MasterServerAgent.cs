@@ -9,13 +9,14 @@ namespace TribesVengeanceMasterServer
 {
     public class MasterServerAgent : IDisposable
     {
+        public static int MasterServerBufferSize = 256;
         public static byte[] Key = Encoding.ASCII.GetBytes("y3D28k");
 
         private readonly TcpClient client;
         private readonly NetworkStream networkStream;
         private readonly GameServerStorage gameServerStorage;
         private readonly Action done;
-        private readonly byte[] buffer = new byte[1024];
+        private readonly byte[] buffer = new byte[MasterServerBufferSize];
         private int readLen = 0;
         private MasterServerRequestInfo info;
 
@@ -42,6 +43,12 @@ namespace TribesVengeanceMasterServer
                 readLen = readLen + networkStream.EndRead(ar);
                 if (readLen == 0)
                 {
+                    return;
+                }
+
+                if(readLen >= buffer.Length - 1)
+                {
+                    done?.Invoke();
                     return;
                 }
 
