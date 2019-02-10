@@ -36,7 +36,7 @@ namespace TribesVengeanceMasterServer
             Console.WriteLine("Created HeartBeatAgent for {0}", remote);
         }
 
-        public void Received(byte[] data)
+        public void Received(ReadOnlySpan<byte> data)
         {
             LastMessageAt = DateTime.UtcNow;
 

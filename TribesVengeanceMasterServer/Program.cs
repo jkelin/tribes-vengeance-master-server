@@ -39,10 +39,10 @@ namespace TribesVengeanceMasterServer
 
             using (var gameServerStorage = await ReadGameServerStorage(storageFile, cts.Token))
             using (var udpServer = new HeartBeatServer(new IPEndPoint(IPAddress.Any, HeartBeatServerPort), gameServerStorage))
-            using (var tcpServer = new MasterServer(new IPEndPoint(IPAddress.Any, MasterServerPort), gameServerStorage, cts.Token))
+            using (var tcpServer = new MasterServer(gameServerStorage))
             {
                 udpServer.Listen();
-                tcpServer.Listen();
+                var masterTask = tcpServer.Listen(new IPEndPoint(IPAddress.Any, MasterServerPort), cts.Token);
 
                 Console.WriteLine("Started");
 
@@ -50,7 +50,9 @@ namespace TribesVengeanceMasterServer
 
                 Console.WriteLine("Shutting down");
 
-                await gameServerStorage.Save(new CancellationTokenSource(500).Token);
+                var saveTask = gameServerStorage.Save(new CancellationTokenSource(500).Token);
+
+                await Task.WhenAll(masterTask, saveTask);
             }
         }
 

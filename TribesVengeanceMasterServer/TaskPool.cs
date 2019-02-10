@@ -10,7 +10,7 @@ namespace TribesVengeanceMasterServer
     {
         private static readonly ConcurrentDictionary<Guid, Task> Tasks = new ConcurrentDictionary<Guid, Task>();
 
-        public static void Run(Task task)
+        public static void RunInBackground(this Task task)
         {
             var id = Guid.NewGuid();
             Tasks.TryAdd(id, task);

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -17,54 +18,56 @@ namespace TribesVengeanceMasterServer
         public static byte[] Key = Encoding.ASCII.GetBytes("y3D28k");
         public static TimeSpan MasterServerClientTimeout = TimeSpan.FromSeconds(5);
 
-        private readonly IPEndPoint endPoint;
         private readonly GameServerStorage gameServerStorage;
-        private readonly CancellationToken masterCt;
-        private readonly TcpListener listener;
-        private bool IsDisposed = false;
+        private readonly ConcurrentDictionary<IPAddress, int> PerIpConnections = new ConcurrentDictionary<IPAddress, int>();
 
-        public MasterServer(IPEndPoint endPoint, GameServerStorage gameServerStorage, CancellationToken masterCt)
+        public MasterServer(GameServerStorage gameServerStorage)
         {
-            this.endPoint = endPoint;
             this.gameServerStorage = gameServerStorage;
-            this.masterCt = masterCt;
-            listener = new TcpListener(endPoint);
         }
 
-        public void Listen()
+        public async Task Listen(IPEndPoint endPoint, CancellationToken ct)
         {
-            Console.WriteLine("Starting MasterServer on TCP {0}", endPoint);
-            listener.Start();
-            listener.BeginAcceptTcpClient(AcceptedTcpClient, null);
-            Console.WriteLine("MasterServer started");
-        }
+            var listener = new TcpListener(endPoint);
 
-        public void AcceptedTcpClient(IAsyncResult ar)
-        {
-            if(IsDisposed)
+            try
             {
-                return;
+                Console.WriteLine("Starting MasterServer on TCP {0}", endPoint);
+                listener.Start();
+                Console.WriteLine("MasterServer started");
+
+                while (!ct.IsCancellationRequested)
+                {
+                    var client = await Task.Run(() => listener.AcceptTcpClientAsync(), ct);
+                    ct.ThrowIfCancellationRequested();
+                    var ip = ((IPEndPoint)(client.Client.RemoteEndPoint)).Address;
+
+                    if(PerIpConnections.TryGetValue(ip, out var totalIps) && totalIps > MaxConnectionsPerIp)
+                    {
+                        client.Dispose();
+                        continue;
+                    }
+
+                    HandleMasterServerClient(client, ct).RunInBackground();
+                }
             }
-
-            TcpClient client = listener.EndAcceptTcpClient(ar);
-            listener.BeginAcceptTcpClient(AcceptedTcpClient, null);
-            var remoteIp = ((IPEndPoint)client.Client.RemoteEndPoint).Address;
-
-            //if (Agents.Keys.Select(x => ((IPEndPoint)x.Client.RemoteEndPoint).Address).Count(x => x.Equals(remoteIp)) > MaxConnectionsPerIp)
-            //{
-            //    client.Dispose();
-            //    return;
-            //}
-
-            TaskPool.Run(HandleMasterServerClient(client, gameServerStorage, masterCt));
+            catch(TaskCanceledException) { }
+            finally
+            {
+                listener.Stop();
+                Console.WriteLine("MasterServer stopped");
+            }
         }
 
-        private static async Task HandleMasterServerClient(TcpClient client, GameServerStorage gameServerStorage, CancellationToken masterCt)
+        private async Task HandleMasterServerClient(TcpClient client, CancellationToken masterCt)
         {
             var buffer = ArrayPool<byte>.Shared.Rent(MasterServerBufferSize);
             var bufferMemory = buffer.AsMemory();
             var readLen = 0;
             var ct = CancellationTokenSource.CreateLinkedTokenSource(new CancellationTokenSource(MasterServerClientTimeout).Token, masterCt).Token;
+            var ip = ((IPEndPoint)(client.Client.RemoteEndPoint)).Address;
+
+            PerIpConnections.AddOrUpdate(ip, 0, (k, v) => v + 1);
 
             try
             {
@@ -105,14 +108,17 @@ namespace TribesVengeanceMasterServer
             finally
             {
                 ArrayPool<byte>.Shared.Return(buffer.ToArray());
+                var value = PerIpConnections.AddOrUpdate(ip, 0, (k, v) => v - 1);
+                if(value < 1)
+                {
+                    // TODO this really should be locked or done better somehow
+                    PerIpConnections.TryRemove(ip, out value);
+                }
             }
         }
 
         public void Dispose()
         {
-            IsDisposed = true;
-
-            listener.Stop();
         }
     }
 }
