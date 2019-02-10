@@ -24,6 +24,7 @@ namespace TribesVengeanceMasterServer
         private DateTime LastMessageAt = DateTime.MinValue;
         private DateTime LastResponseAt = DateTime.MinValue;
         private DateTime LastRequestAt = DateTime.MinValue;
+        private byte[] LastResponseCache = null;
 
         public HeartBeatAgent(IPEndPoint remote, HeartBeatServer server, GameServerStorage storage, Action disposeServer)
         {
@@ -36,7 +37,7 @@ namespace TribesVengeanceMasterServer
             Console.WriteLine("Created HeartBeatAgent for {0}", remote);
         }
 
-        public void Received(ReadOnlySpan<byte> data)
+        public void Received(byte[] data)
         {
             LastMessageAt = DateTime.UtcNow;
 
@@ -46,9 +47,20 @@ namespace TribesVengeanceMasterServer
                 currentData = server.Data;
             }
 
-            if (Encoder.TryParseQueryResponse(data, currentData, out var dict) && dict["gamename"] == GameName)
+            ImmutableDictionary<string, string> newData = null;
+            if (LastResponseCache != null && LastResponseCache.AsSpan().SequenceEqual(data))
             {
-                ResponseReceived(dict);
+                newData = currentData;
+            }
+            else if (Encoder.TryParseQueryResponse(data, currentData, out var dict) && dict["gamename"] == GameName)
+            {
+                newData = dict;
+            }
+
+            if (newData != null)
+            {
+                ResponseReceived(newData);
+                LastResponseCache = data;
             }
 
             Tick();

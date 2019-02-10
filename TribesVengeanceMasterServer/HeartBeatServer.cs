@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Nito.AsyncEx;
+using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
@@ -61,11 +62,9 @@ namespace TribesVengeanceMasterServer
             IPEndPoint remote = null;
             byte[] data;
 
-            lock (socket)
-            {
-                data = socket.EndReceive(ar, ref remote);
-                socket.BeginReceive(Received, null);
-            }
+
+            data = socket.EndReceive(ar, ref remote);
+            socket.BeginReceive(Received, null);
 
             if(data.Length == 0)
             {
