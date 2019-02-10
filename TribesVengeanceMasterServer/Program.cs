@@ -39,7 +39,7 @@ namespace TribesVengeanceMasterServer
 
             using (var gameServerStorage = await ReadGameServerStorage(storageFile, cts.Token))
             using (var udpServer = new HeartBeatServer(new IPEndPoint(IPAddress.Any, HeartBeatServerPort), gameServerStorage))
-            using (var tcpServer = new MasterServer(new IPEndPoint(IPAddress.Any, MasterServerPort), gameServerStorage))
+            using (var tcpServer = new MasterServer(new IPEndPoint(IPAddress.Any, MasterServerPort), gameServerStorage, cts.Token))
             {
                 udpServer.Listen();
                 tcpServer.Listen();

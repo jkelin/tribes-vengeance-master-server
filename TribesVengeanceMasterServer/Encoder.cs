@@ -124,7 +124,7 @@ namespace TribesVengeanceMasterServer
 
         public static bool TryDecodeClientRequest(ReadOnlySpan<byte> data, out MasterServerRequestInfo info)
         {
-            info = new MasterServerRequestInfo();
+            info = null;
             var i = 0;
 
             var len = ToUInt16(data, i);
@@ -139,7 +139,7 @@ namespace TribesVengeanceMasterServer
 
             i += 3; // idk what this is
 
-
+            info = new MasterServerRequestInfo();
             info.Game1 = ReadStringFromData(data.Slice(i), out var shift, 0);
             i += shift + 1;
 
